@@ -1,5 +1,6 @@
 #include "usermanager.h"
 #include "serverconsole.h"
+#include "serverconfig.h"
 
 TCPConnection::Packet::Packet(PacketSource source, TCPConnection::pointer connection, vector<unsigned char> buffer) : _source(source), _connection(connection), _buffer(buffer) {
 	if (_connection == NULL) {
@@ -38,13 +39,14 @@ TCPConnection::Packet::~Packet() {
 			unreadData += format(" {:02X}", c);
 		}
 
-		serverConsole.Print(PrefixType::Debug, format("[ TCPConnection ] Packet from client ({}) has unread data (_readOffset: {}, _buffer.size(): {}):{}\n", _connection->GetIPAddress(), readOffset, _buffer.size(), unreadData));
+		serverConsole.Log(PrefixType::Debug, format("[ TCPConnection ] Packet from client ({}) has unread data (_readOffset: {}, _buffer.size(): {}):{}\n", _connection->GetLogEndpoint(), readOffset, _buffer.size(), unreadData));
 	}
 #endif
 }
 
 TCPConnection::TCPConnection(boost::asio::ip::tcp::socket socket, boost::asio::ssl::context& context) : _sslStream(move(socket), context) {
 	_ipAddress = _sslStream.next_layer().remote_endpoint().address().to_string();
+	_port = _sslStream.next_layer().remote_endpoint().port();
 }
 
 TCPConnection::~TCPConnection() {
@@ -72,26 +74,27 @@ void TCPConnection::Start(PacketHandler&& packetHandler, ErrorHandler&& errorHan
 				return;
 			}
 
-#ifdef NO_SSL
-			self->asyncRead();
-#else
-			self->_sslStream.async_handshake(boost::asio::ssl::stream_base::server, [self]
-			(const boost::system::error_code& ec) {
-					if (ec) {
-						self->DisconnectClient(ec);
-						return;
-					}
+			if (serverConfig.ssl) {
+				self->_sslStream.async_handshake(boost::asio::ssl::stream_base::server, [self]
+				(const boost::system::error_code& ec) {
+						if (ec) {
+							self->DisconnectClient(ec);
+							return;
+						}
 
-					self->asyncRead();
-			});
-#endif
+						self->asyncRead();
+				});
+			}
+			else {
+				self->asyncRead();
+			}
 	});
 }
 
 void TCPConnection::WritePacket(const vector<unsigned char>& buffer) {
 	if (buffer.size() > TCP_PACKET_MAX_SIZE) {
 #ifdef _DEBUG
-		serverConsole.Print(PrefixType::Debug, format("[ TCPConnection ] Packet not sent to client ({}) because buffer size ({}) > TCP_PACKET_MAX_SIZE ({})!\n", _ipAddress, buffer.size(), TCP_PACKET_MAX_SIZE));
+		serverConsole.Log(PrefixType::Debug, format("[ TCPConnection ] Packet not sent to client ({}) because buffer size ({}) > TCP_PACKET_MAX_SIZE ({})!\n", _ipAddress, buffer.size(), TCP_PACKET_MAX_SIZE));
 #endif
 		return;
 	}
@@ -201,31 +204,23 @@ bool TCPConnection::decrypt(vector<unsigned char>& buffer) {
 }
 
 void TCPConnection::asyncRead() {
-#ifdef NO_SSL
-	boost::asio::async_read(_sslStream.next_layer(), _streamBuf, boost::asio::transfer_exactly(PACKET_HEADER_SIZE), [self = shared_from_this()]
-	(const boost::system::error_code& ec, size_t bytesTransferred) {
-		self->onReadHeader(ec, bytesTransferred);
-	});
-#else
-	if (_decrypt) {
-		boost::asio::async_read(_sslStream.next_layer(), _streamBuf, boost::asio::transfer_exactly(PACKET_HEADER_SIZE), [self = shared_from_this()]
+	if (serverConfig.ssl && !_decrypt) {
+		boost::asio::async_read(_sslStream, _streamBuf, boost::asio::transfer_exactly(PACKET_HEADER_SIZE), [self = shared_from_this()]
 		(const boost::system::error_code& ec, size_t bytesTransferred) {
-			self->onReadHeader(ec, bytesTransferred);
+				self->onReadHeader(ec, bytesTransferred);
 		});
 	}
 	else {
-		boost::asio::async_read(_sslStream, _streamBuf, boost::asio::transfer_exactly(PACKET_HEADER_SIZE), [self = shared_from_this()]
+		boost::asio::async_read(_sslStream.next_layer(), _streamBuf, boost::asio::transfer_exactly(PACKET_HEADER_SIZE), [self = shared_from_this()]
 		(const boost::system::error_code& ec, size_t bytesTransferred) {
-			self->onReadHeader(ec, bytesTransferred);
+				self->onReadHeader(ec, bytesTransferred);
 		});
 	}
-#endif
 }
 
 void TCPConnection::onReadHeader(const boost::system::error_code& ec, size_t bytesTransferred) {
 	if (ec) {
-		userManager.RemoveUserByConnection(shared_from_this());
-		DisconnectClient(ec);
+		userManager.DisconnectUserByConnection(shared_from_this(), ec);
 		return;
 	}
 
@@ -236,8 +231,7 @@ void TCPConnection::onReadHeader(const boost::system::error_code& ec, size_t byt
 	if (_decryptCipher.ctx) {
 		if (_decrypt) {
 			if (!decrypt(buffer)) {
-				userManager.RemoveUserByConnection(shared_from_this());
-				DisconnectClient();
+				userManager.DisconnectUserByConnection(shared_from_this());
 				return;
 			}
 		}
@@ -252,52 +246,41 @@ void TCPConnection::onReadHeader(const boost::system::error_code& ec, size_t byt
 #ifdef _DEBUG
 		serverConsole.Log(PrefixType::Debug, format("[ TCPConnection ] Client ({}) sent TCP Packet with invalid signature!\n", _ipAddress));
 #endif
-		userManager.RemoveUserByConnection(shared_from_this());
-		DisconnectClient();
+		userManager.DisconnectUserByConnection(shared_from_this());
 		return;
 	}
 	if (packet->GetSequence() != _incomingSequence) {
 #ifdef _DEBUG
 		serverConsole.Log(PrefixType::Debug, format("[ TCPConnection ] Client ({}) sent TCP Packet with incorrect sequence! Expected {}, got {}\n", _ipAddress, _incomingSequence, packet->GetSequence()));
 #endif
-		userManager.RemoveUserByConnection(shared_from_this());
-		DisconnectClient();
+		userManager.DisconnectUserByConnection(shared_from_this());
 		return;
 	}
 	if (!packet->GetLength()) {
 #ifdef _DEBUG
 		serverConsole.Log(PrefixType::Debug, format("[ TCPConnection ] Client ({}) sent TCP Packet with length 0!\n", _ipAddress));
 #endif
-		userManager.RemoveUserByConnection(shared_from_this());
-		DisconnectClient();
+		userManager.DisconnectUserByConnection(shared_from_this());
 		return;
 	}
 
-#ifdef NO_SSL
-	boost::asio::async_read(_sslStream.next_layer(), _streamBuf, boost::asio::transfer_exactly(packet->GetLength()), [packet, self = shared_from_this()]
-	(const boost::system::error_code& ec, size_t bytesTransferred) {
-		self->onReadBody(ec, bytesTransferred, packet);
-	});
-#else
-	if (_decrypt) {
-		boost::asio::async_read(_sslStream.next_layer(), _streamBuf, boost::asio::transfer_exactly(packet->GetLength()), [packet, self = shared_from_this()]
+	if (serverConfig.ssl && !_decrypt) {
+		boost::asio::async_read(_sslStream, _streamBuf, boost::asio::transfer_exactly(packet->GetLength()), [packet, self = shared_from_this()]
 		(const boost::system::error_code& ec, size_t bytesTransferred) {
-			self->onReadBody(ec, bytesTransferred, packet);
+				self->onReadBody(ec, bytesTransferred, packet);
 		});
 	}
 	else {
-		boost::asio::async_read(_sslStream, _streamBuf, boost::asio::transfer_exactly(packet->GetLength()), [packet, self = shared_from_this()]
+		boost::asio::async_read(_sslStream.next_layer(), _streamBuf, boost::asio::transfer_exactly(packet->GetLength()), [packet, self = shared_from_this()]
 		(const boost::system::error_code& ec, size_t bytesTransferred) {
-			self->onReadBody(ec, bytesTransferred, packet);
+				self->onReadBody(ec, bytesTransferred, packet);
 		});
 	}
-#endif
 }
 
 void TCPConnection::onReadBody(const boost::system::error_code& ec, size_t bytesTransferred, TCPConnection::Packet::pointer packet) {
 	if (ec) {
-		userManager.RemoveUserByConnection(shared_from_this());
-		DisconnectClient(ec);
+		userManager.DisconnectUserByConnection(shared_from_this(), ec);
 		return;
 	}
 
@@ -308,8 +291,7 @@ void TCPConnection::onReadBody(const boost::system::error_code& ec, size_t bytes
 	if (_decryptCipher.ctx) {
 		if (_decrypt) {
 			if (!decrypt(buffer)) {
-				userManager.RemoveUserByConnection(shared_from_this());
-				DisconnectClient();
+				userManager.DisconnectUserByConnection(shared_from_this());
 				return;
 			}
 		}
@@ -328,7 +310,7 @@ void TCPConnection::onReadBody(const boost::system::error_code& ec, size_t bytes
 		bufferStr += format(" {:02X}", c);
 	}
 
-	serverConsole.Print(PrefixType::Debug, format("[ TCPConnection ] Received TCP packet from client ({}):{}\n", GetIPAddress(), bufferStr));
+	serverConsole.Log(PrefixType::Debug, format("[ TCPConnection ] Received TCP packet from client ({}):{}\n", GetLogEndpoint(), bufferStr));
 #endif
 
 	_packetHandler(packet);
@@ -357,8 +339,7 @@ void TCPConnection::asyncWrite() {
 	if (_encryptCipher.ctx) {
 		if (_encrypt) {
 			if (!encrypt(*buffer)) {
-				userManager.RemoveUserByConnection(shared_from_this());
-				DisconnectClient();
+				userManager.DisconnectUserByConnection(shared_from_this());
 				return;
 			}
 		}
@@ -367,31 +348,23 @@ void TCPConnection::asyncWrite() {
 		}
 	}
 
-#ifdef NO_SSL
-	boost::asio::async_write(_sslStream.next_layer(), boost::asio::buffer(*buffer), [self = shared_from_this(), originalBuffer, buffer]
-	(const boost::system::error_code& ec, size_t bytesTransferred) {
-		self->onWrite(ec, bytesTransferred, *originalBuffer);
-	});
-#else
-	if (noSSL) {
-		boost::asio::async_write(_sslStream.next_layer(), boost::asio::buffer(*buffer), [self = shared_from_this(), originalBuffer, buffer]
-		(const boost::system::error_code& ec, size_t bytesTransferred) {
-				self->onWrite(ec, bytesTransferred, *originalBuffer);
-		});
-	}
-	else {
+	if (serverConfig.ssl && !noSSL) {
 		boost::asio::async_write(_sslStream, boost::asio::buffer(*buffer), [self = shared_from_this(), originalBuffer, buffer]
 		(const boost::system::error_code& ec, size_t bytesTransferred) {
 				self->onWrite(ec, bytesTransferred, *originalBuffer);
 		});
 	}
-#endif
+	else {
+		boost::asio::async_write(_sslStream.next_layer(), boost::asio::buffer(*buffer), [self = shared_from_this(), originalBuffer, buffer]
+		(const boost::system::error_code& ec, size_t bytesTransferred) {
+				self->onWrite(ec, bytesTransferred, *originalBuffer);
+		});
+	}
 }
 
 void TCPConnection::onWrite(const boost::system::error_code& ec, size_t bytesTransferred, vector<unsigned char> originalBuffer) {
 	if (ec) {
-		userManager.RemoveUserByConnection(shared_from_this());
-		DisconnectClient(ec);
+		userManager.DisconnectUserByConnection(shared_from_this(), ec);
 		return;
 	}
 
@@ -401,7 +374,7 @@ void TCPConnection::onWrite(const boost::system::error_code& ec, size_t bytesTra
 		bufferStr += format(" {:02X}", c);
 	}
 
-	serverConsole.Print(PrefixType::Debug, format("[ TCPConnection ] Sent TCP Packet to client ({}):{}\n", GetIPAddress(), bufferStr));
+	serverConsole.Log(PrefixType::Debug, format("[ TCPConnection ] Sent TCP Packet to client ({}):{}\n", GetLogEndpoint(), bufferStr));
 #endif
 
 	bool queueIdle = true;

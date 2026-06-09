@@ -13,13 +13,13 @@ void Packet_LoginManager::ParsePacket_Login(TCPConnection::Packet::pointer packe
 		return;
 	}
 
-	auto connection = packet->GetConnection();
+	auto& connection = packet->GetConnection();
 	if (connection == NULL) {
 		return;
 	}
 
 	if (!connection->IsVersionReceived()) {
-		serverConsole.Print(PrefixType::Warn, format("[ Packet_LoginManager ] Client ({}) has sent Packet_Login, but it hasn't sent Packet_Version!\n", connection->GetIPAddress()));
+		serverConsole.Print(PrefixType::Warn, format("[ Packet_LoginManager ] Client ({}) has sent Packet_Login, but it hasn't sent Packet_Version!\n", connection->GetLogEndpoint()));
 		return;
 	}
 
@@ -29,7 +29,7 @@ void Packet_LoginManager::ParsePacket_Login(TCPConnection::Packet::pointer packe
 		return;
 	}
 
-	serverConsole.Print(PrefixType::Info, format("[ Packet_LoginManager ] Parsing Packet_Login from client ({})\n", connection->GetIPAddress()));
+	serverConsole.Print(PrefixType::Info, format("[ Packet_LoginManager ] Parsing Packet_Login from client ({})\n", connection->GetLogEndpoint()));
 
 	const string& userName = packet->ReadString();
 	const string& password = packet->ReadString();
@@ -41,7 +41,7 @@ void Packet_LoginManager::ParsePacket_Login(TCPConnection::Packet::pointer packe
 		hardwareIDStr += format(" {:02X}", c);
 	}
 
-	serverConsole.Print(PrefixType::Info, format("[ Packet_LoginManager ] Client ({}) has sent Packet_Login - userName: {}, password: {}, hardwareID:{}, pcBang: {}\n", connection->GetIPAddress(), userName, password, hardwareIDStr, pcBang));
+	serverConsole.Print(PrefixType::Info, format("[ Packet_LoginManager ] Client ({}) has sent Packet_Login - userName: {}, password: {}, hardwareID:{}, pcBang: {}\n", connection->GetLogEndpoint(), userName, password, hardwareIDStr, pcBang));
 
 	if (userManager.GetUsers().size() >= serverConfig.maxPlayers) {
 		packetManager.SendPacket_Reply(connection, Packet_ReplyType::EXCEED_MAX_CONNECTION);

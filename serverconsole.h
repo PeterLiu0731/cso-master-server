@@ -19,11 +19,11 @@ enum PrefixType {
 	Debug = 5
 };
 
-#define INFO_PREFIX "[ Info ]"
-#define WARN_PREFIX "[ Warn ]"
-#define ERROR_PREFIX "[ Error ]"
-#define FATAL_PREFIX "[ Fatal ]"
-#define DEBUG_PREFIX "[ Debug ]"
+constexpr auto INFO_PREFIX = "[ Info ]";
+constexpr auto WARN_PREFIX = "[ Warn ]";
+constexpr auto ERROR_PREFIX = "[ Error ]";
+constexpr auto FATAL_PREFIX = "[ Fatal ]";
+constexpr auto DEBUG_PREFIX = "[ Debug ]";
 
 class ServerConsole {
 public:

@@ -8,7 +8,12 @@ using json = nlohmann::json;
 ServerConfig serverConfig;
 
 ServerConfig::ServerConfig() {
+	ip = 0;
 	port = 0;
+	ssl = false;
+	decryptCipherMethod = CipherMethod::CleanUp;
+	encryptCipherMethod = CipherMethod::CleanUp;
+	udpAuthKey = "";
 	maxPlayers = 0;
 	serverID = 0;
 	channelID = 0;
@@ -16,12 +21,15 @@ ServerConfig::ServerConfig() {
 	sqlUser = "";
 	sqlPassword = "";
 	sqlDatabase = "";
-	decryptCipherMethod = CipherMethod::CleanUp;
-	encryptCipherMethod = CipherMethod::CleanUp;
 }
 
 string defaultServerConfig = R"({
+	"IP": "127.0.0.1",
 	"Port": 8001,
+	"SSL": true,
+	"DecryptCipherMethod": 1,
+	"EncryptCipherMethod": 1,
+	"UDPAuthKey": "",
 	"MaxPlayers": 600,
 	"ServerID": 1,
 	"ChannelID": 1,
@@ -43,8 +51,6 @@ string defaultServerConfig = R"({
 		"Database": "csodatabase"
 	},
 	"ProhibitedNames": [],
-	"DecryptCipherMethod": 1,
-	"EncryptCipherMethod": 1,
 	"DefaultBuyMenus": {
 		"Terrorist": {
 			"Pistol": [ 3, 6, 2, 4, 1 ],
@@ -97,8 +103,42 @@ bool ServerConfig::Load() {
 
 		f.close();
 
+		if (config.contains("IP")) {
+			string ipStr = config.value("IP", "127.0.0.1");
+
+			struct sockaddr_in addr {};
+			inet_pton(AF_INET, ipStr.c_str(), &(addr.sin_addr));
+
+			ip = addr.sin_addr.S_un.S_addr;
+		}
 		if (config.contains("Port")) {
 			port = config.value("Port", 8001);
+		}
+		if (config.contains("SSL")) {
+			ssl = config.value("SSL", true);
+		}
+		if (config.contains("DecryptCipherMethod")) {
+			unsigned char decryptCipherMethod = config.value("DecryptCipherMethod", 1);
+
+			if (decryptCipherMethod == 1 || decryptCipherMethod == 2) {
+				this->decryptCipherMethod = (CipherMethod)(decryptCipherMethod + 1);
+			}
+			else {
+				this->decryptCipherMethod = CipherMethod::Null;
+			}
+		}
+		if (config.contains("EncryptCipherMethod")) {
+			unsigned char encryptCipherMethod = config.value("EncryptCipherMethod", 1);
+
+			if (encryptCipherMethod == 1 || encryptCipherMethod == 2) {
+				this->encryptCipherMethod = (CipherMethod)(encryptCipherMethod + 1);
+			}
+			else {
+				this->encryptCipherMethod = CipherMethod::Null;
+			}
+		}
+		if (config.contains("UDPAuthKey")) {
+			udpAuthKey = config.value("UDPAuthKey", "");
 		}
 		if (config.contains("MaxPlayers")) {
 			maxPlayers = config.value("MaxPlayers", 600);
@@ -155,26 +195,6 @@ bool ServerConfig::Load() {
 		}
 		if (config.contains("ProhibitedNames")) {
 			prohibitedNames = config["ProhibitedNames"].get<vector<string>>();
-		}
-		if (config.contains("DecryptCipherMethod")) {
-			unsigned char decryptCipherMethod = config.value("DecryptCipherMethod", 1);
-
-			if (decryptCipherMethod == 1 || decryptCipherMethod == 2) {
-				this->decryptCipherMethod = (CipherMethod)(decryptCipherMethod + 1);
-			}
-			else {
-				this->decryptCipherMethod = CipherMethod::Null;
-			}
-		}
-		if (config.contains("EncryptCipherMethod")) {
-			unsigned char encryptCipherMethod = config.value("EncryptCipherMethod", 1);
-
-			if (encryptCipherMethod == 1 || encryptCipherMethod == 2) {
-				this->encryptCipherMethod = (CipherMethod)(encryptCipherMethod + 1);
-			}
-			else {
-				this->encryptCipherMethod = CipherMethod::Null;
-			}
 		}
 		if (config.contains("DefaultBuyMenus")) {
 			json defaultBuyMenus = config["DefaultBuyMenus"];

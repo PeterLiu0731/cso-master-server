@@ -50,7 +50,6 @@ void PacketManager::Stop() {
 
 void PacketManager::QueuePacket(TCPConnection::Packet::pointer packet) {
 	if (!_running) {
-		serverConsole.Print(PrefixType::Warn, "[ PacketManager ] Thread is shut down! Please call Start() again to begin queueing!\n");
 		return;
 	}
 
@@ -58,12 +57,12 @@ void PacketManager::QueuePacket(TCPConnection::Packet::pointer packet) {
 		return;
 	}
 
-	auto connection = packet->GetConnection();
+	auto& connection = packet->GetConnection();
 	if (connection == NULL) {
 		return;
 	}
 
-	serverConsole.Print(PrefixType::Info, format("[ PacketManager ] Queueing packet from client ({})\n", connection->GetIPAddress()));
+	serverConsole.Print(PrefixType::Info, format("[ PacketManager ] Queueing packet from client ({})\n", connection->GetLogEndpoint()));
 
 	{
 		lock_guard<mutex> lock(_queueMutex);
@@ -237,7 +236,7 @@ void PacketManager::parsePacket(TCPConnection::Packet::pointer packet) {
 		return;
 	}
 
-	auto connection = packet->GetConnection();
+	auto& connection = packet->GetConnection();
 	if (connection == NULL) {
 		return;
 	}
@@ -318,7 +317,7 @@ void PacketManager::parsePacket(TCPConnection::Packet::pointer packet) {
 			break;
 		}
 		default: {
-			serverConsole.Print(PrefixType::Warn, format("[ PacketManager ] Client ({}) has sent unregistered packet ID {}!\n", connection->GetIPAddress(), packetID));
+			serverConsole.Print(PrefixType::Warn, format("[ PacketManager ] Client ({}) has sent unregistered packet ID {}!\n", connection->GetLogEndpoint(), packetID));
 			break;
 		}
 	}

@@ -16,7 +16,7 @@ void Packet_TransferManager::ParsePacket_TransferLogin(TCPConnection::Packet::po
 		return;
 	}
 
-	auto connection = packet->GetConnection();
+	auto& connection = packet->GetConnection();
 	if (connection == NULL) {
 		return;
 	}
@@ -27,7 +27,7 @@ void Packet_TransferManager::ParsePacket_TransferLogin(TCPConnection::Packet::po
 		return;
 	}
 
-	serverConsole.Print(PrefixType::Info, format("[ Packet_TransferManager ] Parsing Packet_TransferLogin from client ({})\n", connection->GetIPAddress()));
+	serverConsole.Print(PrefixType::Info, format("[ Packet_TransferManager ] Parsing Packet_TransferLogin from client ({})\n", connection->GetLogEndpoint()));
 
 	const string& authToken = packet->ReadString();
 	const vector<unsigned char>& hardwareID = packet->ReadArray_UInt8(HARDWARE_ID_SIZE);
@@ -39,7 +39,7 @@ void Packet_TransferManager::ParsePacket_TransferLogin(TCPConnection::Packet::po
 		hardwareIDStr += format(" {:02X}", c);
 	}
 
-	serverConsole.Print(PrefixType::Info, format("[ Packet_TransferManager ] Client ({}) has sent Packet_TransferLogin - authToken: {}, hardwareID:{}, pcBang: {}, unk: {}\n", connection->GetIPAddress(), authToken, hardwareIDStr, pcBang, unk));
+	serverConsole.Print(PrefixType::Info, format("[ Packet_TransferManager ] Client ({}) has sent Packet_TransferLogin - authToken: {}, hardwareID:{}, pcBang: {}, unk: {}\n", connection->GetLogEndpoint(), authToken, hardwareIDStr, pcBang, unk));
 
 	if (userManager.GetUsers().size() >= serverConfig.maxPlayers) {
 		packetManager.SendPacket_Reply(connection, Packet_ReplyType::EXCEED_MAX_CONNECTION);
@@ -52,7 +52,7 @@ void Packet_TransferManager::ParsePacket_TransferLogin(TCPConnection::Packet::po
 		return;
 	}
 
-	User* newUser = new User(connection, transferLoginResult.userID, transferLoginResult.userName, transferLoginResult.userNetwork);
+	User* newUser = new User(connection, transferLoginResult.userID, transferLoginResult.userName);
 	char userResult = userManager.AddUser(newUser);
 	if (!userResult) {
 		if (userResult < 0) {
@@ -81,14 +81,14 @@ void Packet_TransferManager::ParsePacket_RequestTransfer(TCPConnection::Packet::
 		return;
 	}
 
-	auto connection = packet->GetConnection();
+	auto& connection = packet->GetConnection();
 	if (connection == NULL) {
 		return;
 	}
 
 	User* user = userManager.GetUserByConnection(connection);
 	if (!userManager.IsUserLoggedIn(user)) {
-		serverConsole.Print(PrefixType::Warn, format("[ Packet_TransferManager ] Client ({}) has sent Packet_RequestTransfer, but it's not logged in!\n", connection->GetIPAddress()));
+		serverConsole.Print(PrefixType::Warn, format("[ Packet_TransferManager ] Client ({}) has sent Packet_RequestTransfer, but it's not logged in!\n", connection->GetLogEndpoint()));
 		return;
 	}
 
@@ -104,7 +104,7 @@ void Packet_TransferManager::ParsePacket_RequestTransfer(TCPConnection::Packet::
 		return;
 	}
 
-	if (!channelID || channelID > serverConfig.serverList[serverID - 1].channels.size()) {
+	if (!channelID || channelID > serverConfig.serverList[(unsigned char)(serverID - 1)].channels.size()) {
 		packetManager.SendPacket_Reply(connection, Packet_ReplyType::InvalidServer);
 		return;
 	}
@@ -119,12 +119,12 @@ void Packet_TransferManager::ParsePacket_RequestTransfer(TCPConnection::Packet::
 		}
 	}
 	else {
-		if (!serverConfig.serverList[serverID - 1].channels[channelID - 1].isOnline) {
+		if (!serverConfig.serverList[(unsigned char)(serverID - 1)].channels[(unsigned char)(channelID - 1)].isOnline) {
 			packet_UMsgManager.SendPacket_UMsg_ServerMessage(connection, Packet_UMsgType::WarningMessage, "SERVER_SELECT_FAIL_SERVER_DOWN");
 			return;
 		}
 
-		if (serverConfig.serverList[serverID - 1].channels[channelID - 1].numPlayers >= serverConfig.serverList[serverID - 1].channels[channelID - 1].maxPlayers) {
+		if (serverConfig.serverList[(unsigned char)(serverID - 1)].channels[(unsigned char)(channelID - 1)].numPlayers >= serverConfig.serverList[(unsigned char)(serverID - 1)].channels[(unsigned char)(channelID - 1)].maxPlayers) {
 			packet_UMsgManager.SendPacket_UMsg_ServerMessage(connection, Packet_UMsgType::WarningMessage, "SERVER_SELECT_FAIL_LOBBY_FULL");
 			return;
 		}
@@ -135,7 +135,7 @@ void Packet_TransferManager::ParsePacket_RequestTransfer(TCPConnection::Packet::
 			return;
 		}
 
-		if (serverConfig.serverList[serverID - 1].type == ServerType::Newbie && userCharacterResult.userCharacter.level >= 9) {
+		if (serverConfig.serverList[(unsigned char)(serverID - 1)].type == ServerType::Newbie && userCharacterResult.userCharacter.level >= 9) {
 			packet_UMsgManager.SendPacket_UMsg_ServerMessage(connection, Packet_UMsgType::WarningMessage, "SERVER_SELECT_FAIL_LEVEL_LIMIT");
 			return;
 		}
@@ -160,9 +160,9 @@ void Packet_TransferManager::ParsePacket_RequestTransfer(TCPConnection::Packet::
 
 		struct sockaddr_in addr {};
 
-		inet_pton(AF_INET, serverConfig.serverList[serverID - 1].channels[channelID - 1].ip.c_str(), &(addr.sin_addr));
+		inet_pton(AF_INET, serverConfig.serverList[(unsigned char)(serverID - 1)].channels[(unsigned char)(channelID - 1)].ip.c_str(), &(addr.sin_addr));
 
-		sendPacket_Transfer(connection, (unsigned long)addr.sin_addr.S_un.S_addr, serverConfig.serverList[serverID - 1].channels[channelID - 1].port, string{ authToken });
+		sendPacket_Transfer(connection, (unsigned long)addr.sin_addr.S_un.S_addr, serverConfig.serverList[(unsigned char)(serverID - 1)].channels[(unsigned char)(channelID - 1)].port, string{ authToken });
 	}
 }
 

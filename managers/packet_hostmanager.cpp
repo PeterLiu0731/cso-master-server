@@ -11,14 +11,14 @@ void Packet_HostManager::ParsePacket_Host(TCPConnection::Packet::pointer packet)
 		return;
 	}
 
-	auto connection = packet->GetConnection();
+	auto& connection = packet->GetConnection();
 	if (connection == NULL) {
 		return;
 	}
 
 	User* user = userManager.GetUserByConnection(connection);
 	if (!userManager.IsUserLoggedIn(user)) {
-		serverConsole.Print(PrefixType::Warn, format("[ Packet_HostManager ] Client ({}) has sent Packet_Host, but it's not logged in!\n", connection->GetIPAddress()));
+		serverConsole.Print(PrefixType::Warn, format("[ Packet_HostManager ] Client ({}) has sent Packet_Host, but it's not logged in!\n", connection->GetLogEndpoint()));
 		return;
 	}
 
@@ -79,7 +79,7 @@ void Packet_HostManager::SendPacket_Host_HostStart(User* user) {
 		return;
 	}
 
-	auto connection = user->GetConnection();
+	auto& connection = user->GetConnection();
 	if (connection == NULL) {
 		return;
 	}

@@ -11,14 +11,14 @@ void Packet_UMsgManager::ParsePacket_UMsg(TCPConnection::Packet::pointer packet)
 		return;
 	}
 
-	auto connection = packet->GetConnection();
+	auto& connection = packet->GetConnection();
 	if (connection == NULL) {
 		return;
 	}
 
 	User* user = userManager.GetUserByConnection(connection);
 	if (!userManager.IsUserLoggedIn(user)) {
-		serverConsole.Print(PrefixType::Warn, format("[ Packet_UMsgManager ] Client ({}) has sent Packet_UMsg, but it's not logged in!\n", connection->GetIPAddress()));
+		serverConsole.Print(PrefixType::Warn, format("[ Packet_UMsgManager ] Client ({}) has sent Packet_UMsg, but it's not logged in!\n", connection->GetLogEndpoint()));
 		return;
 	}
 
@@ -87,7 +87,7 @@ void Packet_UMsgManager::parsePacket_UMsg_WhisperChat(User* user, TCPConnection:
 		return;
 	}
 
-	auto connection = user->GetConnection();
+	auto& connection = user->GetConnection();
 	if (connection == NULL) {
 		return;
 	}
@@ -138,7 +138,7 @@ void Packet_UMsgManager::parsePacket_UMsg_ChannelChat(User* user, TCPConnection:
 		return;
 	}
 
-	auto connection = user->GetConnection();
+	auto& connection = user->GetConnection();
 	if (connection == NULL) {
 		return;
 	}
@@ -174,7 +174,7 @@ void Packet_UMsgManager::parsePacket_UMsg_RoomChat(User* user, TCPConnection::Pa
 		return;
 	}
 
-	auto connection = user->GetConnection();
+	auto& connection = user->GetConnection();
 	if (connection == NULL) {
 		return;
 	}
@@ -197,6 +197,8 @@ void Packet_UMsgManager::parsePacket_UMsg_RoomChat(User* user, TCPConnection::Pa
 	}
 
 	const string& text = packet->ReadString();
+
+	serverConsole.Print(PrefixType::Info, format("[ Packet_UMsgManager ] User ({}) has sent Packet_UMsg RoomChat - text: {}\n", user->GetUserLogName(), text));
 
 	vector<User*> roomUsers = room->GetRoomUsers();
 

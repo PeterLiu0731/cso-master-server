@@ -5,14 +5,12 @@
 
 using namespace std;
 
-//#define NO_SSL
-
-#define SERVERCONNECTED "~SERVERCONNECTED\n\0"
-#define TCP_PACKET_SIGNATURE 'U'
-#define PACKET_HEADER_SIZE 4
-#define TCP_PACKET_MAX_SIZE 0x10000
-#define KEY_SIZE 32
-#define BLOCK_SIZE 32
+constexpr auto SERVERCONNECTED = "~SERVERCONNECTED\n\0";
+constexpr auto TCP_PACKET_SIGNATURE = 'U';
+constexpr auto PACKET_HEADER_SIZE = 4;
+constexpr auto TCP_PACKET_MAX_SIZE = 0x10000;
+constexpr auto KEY_SIZE = 32;
+constexpr auto BLOCK_SIZE = 32;
 
 enum class PacketSource {
 	Client,
@@ -101,9 +99,9 @@ struct Cipher {
 	unsigned char iv[BLOCK_SIZE] = {};
 };
 
-#define BUYMENU_MAX_CATEGORY 7
-#define BUYMENU_MAX_SLOT 9
-#define BOOKMARK_MAX_SLOT 5
+constexpr auto BUYMENU_MAX_CATEGORY = 7;
+constexpr auto BUYMENU_MAX_SLOT = 9;
+constexpr auto BOOKMARK_MAX_SLOT = 5;
 
 struct BuyMenu {
 	unsigned char categoryID = 0;
@@ -467,6 +465,14 @@ public:
 		return _ipAddress;
 	}
 
+	unsigned short GetPort() const noexcept {
+		return _port;
+	}
+
+	const string GetLogEndpoint() const noexcept {
+		return format("{}:{}", _ipAddress, _port);
+	}
+
 	unsigned char GetOutgoingSequence() const noexcept {
 		return _outgoingSequence;
 	}
@@ -523,6 +529,7 @@ private:
 private:
 	boost::asio::ssl::stream<boost::asio::ip::tcp::socket> _sslStream;
 	string _ipAddress;
+	unsigned short _port;
 
 	mutex _outgoingMutex;
 	queue<vector<unsigned char>> _outgoingPackets;

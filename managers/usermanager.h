@@ -11,15 +11,16 @@ public:
 
 	char AddUser(User* user);
 	void RemoveUser(User* user);
+	void DisconnectUser(User* user, const boost::system::error_code& ec = {});
 	void RemoveAllUsers();
 	User* GetUserByConnection(TCPConnection::pointer connection);
 	User* GetUserByUserID(unsigned long userID);
-	void RemoveUserByConnection(TCPConnection::pointer connection);
+	void DisconnectUserByConnection(TCPConnection::pointer connection, const boost::system::error_code& ec = {});
 	bool IsUserLoggedIn(User* user);
 	bool SendLoginPackets(User* user, Packet_ReplyType reply = Packet_ReplyType::NoReply);
-	void SendFullUserListPacket(TCPConnection::pointer connection);
-	void SendAddUserPacketToAll(User* user);
-	void SendRemoveUserPacketToAll(User* user);
+	void SendFullUserListPacket(TCPConnection::pointer connection) const noexcept;
+	void SendAddUserPacketToAll(User* user) const noexcept;
+	void SendRemoveUserPacketToAll(User* user) const noexcept;
 	void UpdateChannelNumPlayers();
 	void OnMinuteTick();
 

@@ -9,14 +9,14 @@ void Packet_ClientCheckManager::ParsePacket_ClientCheck(TCPConnection::Packet::p
 		return;
 	}
 
-	auto connection = packet->GetConnection();
+	auto& connection = packet->GetConnection();
 	if (connection == NULL) {
 		return;
 	}
 
 	User* user = userManager.GetUserByConnection(connection);
 	if (!userManager.IsUserLoggedIn(user)) {
-		serverConsole.Print(PrefixType::Warn, format("[ Packet_ClientCheckManager ] Client ({}) has sent Packet_ClientCheck, but it's not logged in!\n", connection->GetIPAddress()));
+		serverConsole.Print(PrefixType::Warn, format("[ Packet_ClientCheckManager ] Client ({}) has sent Packet_ClientCheck, but it's not logged in!\n", connection->GetLogEndpoint()));
 		return;
 	}
 

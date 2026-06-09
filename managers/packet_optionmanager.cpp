@@ -9,14 +9,14 @@ void Packet_OptionManager::ParsePacket_Option(TCPConnection::Packet::pointer pac
 		return;
 	}
 
-	auto connection = packet->GetConnection();
+	auto& connection = packet->GetConnection();
 	if (connection == NULL) {
 		return;
 	}
 
 	User* user = userManager.GetUserByConnection(connection);
 	if (!userManager.IsUserLoggedIn(user)) {
-		serverConsole.Print(PrefixType::Warn, format("[ Packet_OptionManager ] Client ({}) has sent Packet_Option, but it's not logged in!\n", connection->GetIPAddress()));
+		serverConsole.Print(PrefixType::Warn, format("[ Packet_OptionManager ] Client ({}) has sent Packet_Option, but it's not logged in!\n", connection->GetLogEndpoint()));
 		return;
 	}
 
@@ -26,28 +26,11 @@ void Packet_OptionManager::ParsePacket_Option(TCPConnection::Packet::pointer pac
 
 	switch (type) {
 		case Packet_OptionType::UserOption: {
-			unsigned short size = packet->ReadUInt16_LE();
-
-			if (size == 0 || size > OPTION_MAX_SIZE) {
-				serverConsole.Print(PrefixType::Warn, format("[ Packet_OptionManager ] User ({}) has sent Packet_Option UserOption, but its size is invalid: {}!\n", user->GetUserLogName(), size));
-				return;
-			}
-
-			const vector<unsigned char>& userOption = packet->ReadArray_UInt8(size);
-
-			if (user->SaveUserOption(userOption)) {
-				serverConsole.Print(PrefixType::Info, format("[ Packet_OptionManager ] User ({}) has sent Packet_Option UserOption, userOption saved successfully!\n", user->GetUserLogName()));
-			}
-			else {
-				serverConsole.Print(PrefixType::Error, format("[ Packet_OptionManager ] User ({}) has sent Packet_Option UserOption, failed to save userOption!\n", user->GetUserLogName()));
-			}
-
+			parsePacket_Option_UserOption(user, packet);
 			break;
 		}
 		case Packet_OptionType::Unk1: {
-			unsigned long unk1 = packet->ReadUInt32_LE();
-
-			serverConsole.Print(PrefixType::Info, format("[ Packet_OptionManager ] User ({}) has sent Packet_Option - type: {}, unk1: {}\n", user->GetUserLogName(), type, unk1));
+			parsePacket_Option_Unk1(user, packet);
 			break;
 		}
 		default: {
@@ -72,4 +55,36 @@ void Packet_OptionManager::SendPacket_Option_UserOption(TCPConnection::pointer c
 	packet->WriteArray_UInt8(userOption);
 
 	packet->Send();
+}
+
+void Packet_OptionManager::parsePacket_Option_UserOption(User* user, TCPConnection::Packet::pointer packet) {
+	if (user == NULL || packet == NULL) {
+		return;
+	}
+
+	unsigned short size = packet->ReadUInt16_LE();
+
+	if (size == 0 || size > OPTION_MAX_SIZE) {
+		serverConsole.Print(PrefixType::Warn, format("[ Packet_OptionManager ] User ({}) has sent Packet_Option UserOption, but its size is invalid: {}!\n", user->GetUserLogName(), size));
+		return;
+	}
+
+	const vector<unsigned char>& userOption = packet->ReadArray_UInt8(size);
+
+	if (user->SaveUserOption(userOption)) {
+		serverConsole.Print(PrefixType::Info, format("[ Packet_OptionManager ] User ({}) has sent Packet_Option UserOption, userOption saved successfully!\n", user->GetUserLogName()));
+	}
+	else {
+		serverConsole.Print(PrefixType::Error, format("[ Packet_OptionManager ] User ({}) has sent Packet_Option UserOption, failed to save userOption!\n", user->GetUserLogName()));
+	}
+}
+
+void Packet_OptionManager::parsePacket_Option_Unk1(User* user, TCPConnection::Packet::pointer packet) {
+	if (user == NULL || packet == NULL) {
+		return;
+	}
+
+	unsigned long unk1 = packet->ReadUInt32_LE();
+
+	serverConsole.Print(PrefixType::Info, format("[ Packet_OptionManager ] User ({}) has sent Packet_Option Unk1 - unk1: {}\n", user->GetUserLogName(), unk1));
 }

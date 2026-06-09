@@ -1,6 +1,7 @@
 #include "tcp_server.h"
 #include "packetmanager.h"
 #include "serverconsole.h"
+#include "serverconfig.h"
 
 TCPServer tcpServer;
 
@@ -8,11 +9,11 @@ TCPServer::TCPServer() : _sslContext(boost::asio::ssl::context::sslv23), _accept
 	_port = 0;
 
 	OnConnect = [](TCPConnection::pointer connection) {
-		serverConsole.Print(PrefixType::Info, format("[ TCPServer ] Client ({}) has connected to the server\n", connection->GetIPAddress()));
+		serverConsole.Print(PrefixType::Info, format("[ TCPServer ] Client ({}) has connected to the server\n", connection->GetLogEndpoint()));
 	};
 
 	OnDisconnect = [](TCPConnection::pointer connection) {
-		serverConsole.Print(PrefixType::Info, format("[ TCPServer ] Client ({}) has disconnected from the server\n", connection->GetIPAddress()));
+		serverConsole.Print(PrefixType::Info, format("[ TCPServer ] Client ({}) has disconnected from the server\n", connection->GetLogEndpoint()));
 	};
 
 	OnClientPacket = [](TCPConnection::Packet::pointer packet) {
@@ -29,16 +30,16 @@ bool TCPServer::Init(unsigned short port) {
 		_port = port;
 		_acceptor = boost::asio::ip::tcp::acceptor(_ioContext, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), _port));
 
-#ifndef NO_SSL
-		_sslContext.set_options(
-			boost::asio::ssl::context::default_workarounds
-			| boost::asio::ssl::context::no_sslv2
-			| boost::asio::ssl::context::single_dh_use);
-		_sslContext.set_password_callback(bind(&TCPServer::get_password, this));
-		_sslContext.use_certificate_chain_file("certs\\cert.pem");
-		_sslContext.use_private_key_file("certs\\key.pem", boost::asio::ssl::context::pem);
-		_sslContext.use_tmp_dh_file("certs\\dh2048.pem");
-#endif
+		if (serverConfig.ssl) {
+			_sslContext.set_options(
+				boost::asio::ssl::context::default_workarounds
+				| boost::asio::ssl::context::no_sslv2
+				| boost::asio::ssl::context::single_dh_use);
+			_sslContext.set_password_callback(bind(&TCPServer::get_password, this));
+			_sslContext.use_certificate_chain_file("certs\\cert.pem");
+			_sslContext.use_private_key_file("certs\\key.pem", boost::asio::ssl::context::pem);
+			_sslContext.use_tmp_dh_file("certs\\dh2048.pem");
+		}
 	}
 	catch (exception& e) {
 		serverConsole.Print(PrefixType::Error, format("[ TCPServer ] Error on Init: {}\n", e.what()));

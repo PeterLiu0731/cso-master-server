@@ -2,7 +2,7 @@
 #include "user.h"
 #include "gamematchuser.h"
 
-#define SAVEDATA_MAX_SIZE 51200
+constexpr auto SAVEDATA_MAX_SIZE = 51200;
 
 enum Packet_HostType {
 	HostStart = 0,

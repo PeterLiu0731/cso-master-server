@@ -11,14 +11,14 @@ void Packet_CharacterManager::ParsePacket_RecvCharacter(TCPConnection::Packet::p
 		return;
 	}
 
-	auto connection = packet->GetConnection();
+	auto& connection = packet->GetConnection();
 	if (connection == NULL) {
 		return;
 	}
 
 	User* user = userManager.GetUserByConnection(connection);
 	if (user == NULL) {
-		serverConsole.Print(PrefixType::Warn, format("[ Packet_CharacterManager ] Client ({}) has sent Packet_RecvCharacter, but it's not logged in!\n", connection->GetIPAddress()));
+		serverConsole.Print(PrefixType::Warn, format("[ Packet_CharacterManager ] Client ({}) has sent Packet_RecvCharacter, but it's not logged in!\n", connection->GetLogEndpoint()));
 		return;
 	}
 

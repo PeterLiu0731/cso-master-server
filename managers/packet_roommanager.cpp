@@ -5,6 +5,7 @@
 #include "usermanager.h"
 #include "roommanager.h"
 #include "serverconsole.h"
+#include "serverconfig.h"
 
 Packet_RoomManager packet_RoomManager;
 
@@ -13,14 +14,14 @@ void Packet_RoomManager::ParsePacket_Room(TCPConnection::Packet::pointer packet)
 		return;
 	}
 
-	auto connection = packet->GetConnection();
+	auto& connection = packet->GetConnection();
 	if (connection == NULL) {
 		return;
 	}
 
 	User* user = userManager.GetUserByConnection(connection);
 	if (!userManager.IsUserLoggedIn(user)) {
-		serverConsole.Print(PrefixType::Warn, format("[ Packet_RoomManager ] Client ({}) has sent Packet_Room, but it's not logged in!\n", connection->GetIPAddress()));
+		serverConsole.Print(PrefixType::Warn, format("[ Packet_RoomManager ] Client ({}) has sent Packet_Room, but it's not logged in!\n", connection->GetLogEndpoint()));
 		return;
 	}
 
@@ -179,7 +180,7 @@ void Packet_RoomManager::SendPacket_Room_GameResult(TCPConnection::pointer conne
 	}
 
 	packet->WriteUInt8(Packet_RoomType::GameResult);
-	packet->WriteUInt8(0); // 0 - normal match, 1 - clan battle
+	packet->WriteBool(false); // false - normal match, true - clan battle
 
 	if (true) { // normal match
 		packet->WriteUInt8(0); // win team; 1 - tr, 2 - ct, any other value - no team
@@ -279,8 +280,14 @@ void Packet_RoomManager::parsePacket_Room_CreateRoom(User* user, TCPConnection::
 		return;
 	}
 
-	auto connection = user->GetConnection();
+	auto& connection = user->GetConnection();
 	if (connection == NULL) {
+		return;
+	}
+
+	const UserNetwork& userNetwork = user->GetUserNetwork();
+	if (userNetwork.networkSet != 0x3) {
+		packet_UMsgManager.SendPacket_UMsg_ServerMessage(connection, Packet_UMsgType::WarningMessage, "ROOM_OPEN_FAILED_INVALID_GAME_IP");
 		return;
 	}
 
@@ -374,8 +381,14 @@ void Packet_RoomManager::parsePacket_Room_JoinRoom(User* user, TCPConnection::Pa
 		return;
 	}
 
-	auto connection = user->GetConnection();
+	auto& connection = user->GetConnection();
 	if (connection == NULL) {
+		return;
+	}
+
+	const UserNetwork& userNetwork = user->GetUserNetwork();
+	if (userNetwork.networkSet != 0x3) {
+		packet_UMsgManager.SendPacket_UMsg_ServerMessage(connection, Packet_UMsgType::WarningMessage, "ROOM_JOIN_FAILED_INVALID_GAME_IP");
 		return;
 	}
 
@@ -450,7 +463,7 @@ void Packet_RoomManager::parsePacket_Room_LeaveRoom(User* user, TCPConnection::P
 		return;
 	}
 
-	auto connection = user->GetConnection();
+	auto& connection = user->GetConnection();
 	if (connection == NULL) {
 		return;
 	}
@@ -484,7 +497,7 @@ void Packet_RoomManager::parsePacket_Room_StartGame(User* user) {
 		return;
 	}
 
-	auto connection = user->GetConnection();
+	auto& connection = user->GetConnection();
 	if (connection == NULL) {
 		return;
 	}
@@ -693,7 +706,7 @@ void Packet_RoomManager::parsePacket_Room_ResultConfirm(User* user, TCPConnectio
 		return;
 	}
 
-	auto connection = user->GetConnection();
+	auto& connection = user->GetConnection();
 	if (connection == NULL) {
 		return;
 	}
@@ -721,7 +734,7 @@ void Packet_RoomManager::parsePacket_Room_ReturnToRoom(User* user) {
 		return;
 	}
 
-	auto connection = user->GetConnection();
+	auto& connection = user->GetConnection();
 	if (connection == NULL) {
 		return;
 	}
@@ -852,11 +865,11 @@ void Packet_RoomManager::buildRoomInfo(TCPConnection::Packet::pointer packet, Ro
 	if (flag & ROOMLIST_FLAG_UNK400) {
 		packet->WriteUInt8(0); // unk
 	}
-	if (flag & ROOMLIST_FLAG_UNK800) {
-		packet->WriteUInt32_LE(userNetwork.externalIP); // unk
-		packet->WriteUInt16_LE(userNetwork.externalHostPort); // unk
-		packet->WriteUInt32_LE(userNetwork.localIP); // unk
-		packet->WriteUInt16_LE(userNetwork.localHostPort); // unk
+	if (flag & ROOMLIST_FLAG_ROOMHOSTNETWORK) {
+		packet->WriteUInt32_LE(userNetwork.localIP);
+		packet->WriteUInt16_LE(userNetwork.localHostPort);
+		packet->WriteUInt32_LE(serverConfig.ip);
+		packet->WriteUInt16_LE(serverConfig.port);
 		packet->WriteUInt8(0); // unk
 	}
 	if (flag & ROOMLIST_FLAG_UNK1000) {
@@ -942,13 +955,13 @@ void Packet_RoomManager::buildRoomSettings(TCPConnection::Packet::pointer packet
 		packet->WriteUInt8(roomSettings.unk80000); // unk
 	}
 	if (roomSettings.lowFlag & ROOMSETTINGS_LFLAG_FRIENDLYFIRE) {
-		packet->WriteUInt8(roomSettings.friendlyFire);
+		packet->WriteBool(roomSettings.friendlyFire);
 	}
 	if (roomSettings.lowFlag & ROOMSETTINGS_LFLAG_FLASHLIGHT) {
-		packet->WriteUInt8(roomSettings.flashLight);
+		packet->WriteBool(roomSettings.flashLight);
 	}
 	if (roomSettings.lowFlag & ROOMSETTINGS_LFLAG_FOOTSTEPS) {
-		packet->WriteUInt8(roomSettings.footSteps);
+		packet->WriteBool(roomSettings.footSteps);
 	}
 	if (roomSettings.lowFlag & ROOMSETTINGS_LFLAG_UNK800000) {
 		packet->WriteUInt8(roomSettings.unk800000); // unk
@@ -969,7 +982,7 @@ void Packet_RoomManager::buildRoomSettings(TCPConnection::Packet::pointer packet
 		packet->WriteUInt8(roomSettings.deathCameraType);
 	}
 	if (roomSettings.lowFlag & ROOMSETTINGS_LFLAG_VOICECHAT) {
-		packet->WriteUInt8(roomSettings.voiceChat);
+		packet->WriteBool(roomSettings.voiceChat);
 	}
 	if (roomSettings.lowFlag & ROOMSETTINGS_LFLAG_ROOMSTATE) {
 		packet->WriteUInt8((unsigned char)roomSettings.roomState);

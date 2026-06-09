@@ -9,7 +9,7 @@
 
 HANDLE hMutex;
 
-BOOL WINAPI ConsoleCtrlHandler(DWORD CtrlType) {
+static BOOL WINAPI ConsoleCtrlHandler(DWORD CtrlType) {
 	switch (CtrlType) {
 		case CTRL_CLOSE_EVENT:
 		case CTRL_LOGOFF_EVENT:
@@ -48,16 +48,15 @@ int main() {
 		return -1;
 	}
 
-	if (!databaseManager.Init(serverConfig.sqlServer, serverConfig.sqlUser, serverConfig.sqlPassword, serverConfig.sqlDatabase)) {
-		serverConsole.Print(PrefixType::Fatal, "[ DatabaseManager ] Failed to initialize database manager!\n");
-		return -1;
-	}
-
-	string mutexName = format("cso-master-server-{}-{}", serverConfig.serverID, serverConfig.channelID);
-	hMutex = CreateMutexA(NULL, FALSE, mutexName.c_str());
+	hMutex = CreateMutexA(NULL, FALSE, format("cso-master-server-{}-{}", serverConfig.serverID, serverConfig.channelID).c_str());
 	if (hMutex) {
 		DWORD dwWaitResult = WaitForSingleObject(hMutex, 0);
 		if (!dwWaitResult || dwWaitResult == WAIT_ABANDONED) {
+			if (!databaseManager.Init(serverConfig.sqlServer, serverConfig.sqlUser, serverConfig.sqlPassword, serverConfig.sqlDatabase)) {
+				serverConsole.Print(PrefixType::Fatal, "[ DatabaseManager ] Failed to initialize database manager!\n");
+				return -1;
+			}
+
 			databaseManager.RemoveAllUserSessions();
 			databaseManager.RemoveAllUserTransfers();
 		}

@@ -56,6 +56,20 @@ void UserManager::RemoveUser(User* user) {
 	UpdateChannelNumPlayers();
 }
 
+void UserManager::DisconnectUser(User* user, const boost::system::error_code& ec) {
+	if (user == NULL) {
+		return;
+	}
+
+	auto& connection = user->GetConnection();
+	if (connection == NULL) {
+		return;
+	}
+
+	RemoveUser(user);
+	ec ? connection->DisconnectClient(ec) : connection->DisconnectClient();
+}
+
 void UserManager::RemoveAllUsers() {
 	for (auto& user : _users) {
 		delete user;
@@ -91,7 +105,7 @@ User* UserManager::GetUserByUserID(unsigned long userID) {
 	return NULL;
 }
 
-void UserManager::RemoveUserByConnection(TCPConnection::pointer connection) {
+void UserManager::DisconnectUserByConnection(TCPConnection::pointer connection, const boost::system::error_code& ec) {
 	if (connection == NULL) {
 		return;
 	}
@@ -102,6 +116,7 @@ void UserManager::RemoveUserByConnection(TCPConnection::pointer connection) {
 	}
 
 	RemoveUser(user);
+	ec ? connection->DisconnectClient(ec) : connection->DisconnectClient();
 }
 
 bool UserManager::IsUserLoggedIn(User* user) {
@@ -121,7 +136,7 @@ bool UserManager::SendLoginPackets(User* user, Packet_ReplyType reply) {
 		return false;
 	}
 
-	auto connection = user->GetConnection();
+	auto& connection = user->GetConnection();
 	if (connection == NULL) {
 		RemoveUser(user);
 		return false;
@@ -144,12 +159,23 @@ bool UserManager::SendLoginPackets(User* user, Packet_ReplyType reply) {
 	}
 
 	if (reply != Packet_ReplyType::NoReply) {
+		packetManager.SendPacket_Reply(connection, reply);
+	}
+
+	packet_UserStartManager.SendPacket_UserStart({ user, userCharacterResult.userCharacter });
+	packet_UpdateInfoManager.SendPacket_UpdateInfo({ user, userCharacterResult.userCharacter });
+
+	const vector<InventoryItem>& userInventory = user->GetUserInventory();
+	if (!userInventory.empty()) {
+		packetManager.SendPacket_Inventory(connection, userInventory);
+	}
+
+	packet_ClientCheckManager.SendPacket_ClientCheck(connection);
+
+	if (reply != Packet_ReplyType::NoReply) {
 		user->SetUserStatus(UserStatus::InServerList);
 
-		packetManager.SendPacket_Reply(connection, reply);
 		packet_ServerListManager.SendPacket_ServerList(connection, serverConfig.serverList);
-		packet_UserStartManager.SendPacket_UserStart({ user, userCharacterResult.userCharacter });
-		packet_UpdateInfoManager.SendPacket_UpdateInfo({ user, userCharacterResult.userCharacter });
 
 		const vector<unsigned char>& userOption = user->GetUserOption();
 		if (!userOption.empty()) {
@@ -165,13 +191,6 @@ bool UserManager::SendLoginPackets(User* user, Packet_ReplyType reply) {
 		if (!userBookMarks.empty()) {
 			packet_FavoriteManager.SendPacket_Favorite_UserBookMark(connection, userBookMarks);
 		}
-
-		const vector<InventoryItem>& userInventory = user->GetUserInventory();
-		if (!userInventory.empty()) {
-			packetManager.SendPacket_Inventory(connection, userInventory);
-		}
-
-		packet_ClientCheckManager.SendPacket_ClientCheck(connection);
 	}
 	else {
 		user->SetUserStatus(UserStatus::InLobby);
@@ -184,7 +203,7 @@ bool UserManager::SendLoginPackets(User* user, Packet_ReplyType reply) {
 	return true;
 }
 
-void UserManager::SendFullUserListPacket(TCPConnection::pointer connection) {
+void UserManager::SendFullUserListPacket(TCPConnection::pointer connection) const noexcept {
 	if (connection == NULL) {
 		return;
 	}
@@ -208,7 +227,7 @@ void UserManager::SendFullUserListPacket(TCPConnection::pointer connection) {
 	packet_ServerListManager.SendPacket_Lobby_FullUserList(connection, gameUsers);
 }
 
-void UserManager::SendAddUserPacketToAll(User* user) {
+void UserManager::SendAddUserPacketToAll(User* user) const noexcept {
 	if (user == NULL) {
 		return;
 	}
@@ -229,7 +248,7 @@ void UserManager::SendAddUserPacketToAll(User* user) {
 	}
 }
 
-void UserManager::SendRemoveUserPacketToAll(User* user) {
+void UserManager::SendRemoveUserPacketToAll(User* user) const noexcept {
 	if (user == NULL) {
 		return;
 	}
@@ -248,10 +267,8 @@ void UserManager::SendRemoveUserPacketToAll(User* user) {
 }
 
 void UserManager::UpdateChannelNumPlayers() {
-	unsigned short numPlayers = (unsigned short)_users.size();
-
-	serverConfig.serverList[serverConfig.serverID - 1].channels[serverConfig.channelID - 1].numPlayers = numPlayers;
-	udpServer.SendNumPlayersPacketToAll(numPlayers);
+	serverConfig.serverList[(unsigned char)(serverConfig.serverID - 1)].channels[(unsigned char)(serverConfig.channelID - 1)].numPlayers = (unsigned short)_users.size();
+	udpServer.SendNumPlayersPacketToAll();
 }
 
 void UserManager::OnMinuteTick() {

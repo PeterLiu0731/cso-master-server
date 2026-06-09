@@ -10,14 +10,14 @@ void Packet_ServerListManager::ParsePacket_RequestServerList(TCPConnection::Pack
 		return;
 	}
 
-	auto connection = packet->GetConnection();
+	auto& connection = packet->GetConnection();
 	if (connection == NULL) {
 		return;
 	}
 
 	User* user = userManager.GetUserByConnection(connection);
 	if (!userManager.IsUserLoggedIn(user)) {
-		serverConsole.Print(PrefixType::Warn, format("[ Packet_ServerListManager ] Client ({}) has sent Packet_RequestServerList, but it's not logged in!\n", connection->GetIPAddress()));
+		serverConsole.Print(PrefixType::Warn, format("[ Packet_ServerListManager ] Client ({}) has sent Packet_RequestServerList, but it's not logged in!\n", connection->GetLogEndpoint()));
 		return;
 	}
 

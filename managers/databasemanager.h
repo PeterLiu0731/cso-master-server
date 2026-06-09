@@ -10,7 +10,6 @@ struct LoginResult {
 struct TransferLoginResult {
 	unsigned long userID = 0;
 	string userName = "";
-	UserNetwork userNetwork;
 	Packet_ReplyType reply = Packet_ReplyType::LoginSuccess;
 };
 
@@ -29,12 +28,13 @@ public:
 	bool CreateUserInventory(unsigned long userID);
 	char AddUserSession(unsigned long userID);
 	void RemoveUserSession(unsigned long userID);
-	void RemoveAllUserSessions(unsigned char serverID = 0, unsigned char channelID = 0);
+	char IsUserSessionAdded(unsigned long userID);
+	void RemoveAllUserSessions();
 	const TransferLoginResult TransferLogin(const string& authToken);
-	char AddUserTransfer(unsigned long userID, const string& authToken, unsigned char serverID, unsigned char channelID, const UserNetwork& userNetwork);
+	char AddUserTransfer(unsigned long userID, const string& authToken, unsigned char serverID, unsigned char channelID);
 	void RemoveUserTransfer(unsigned long userID);
 	void RemoveOldUserTransfers();
-	void RemoveAllUserTransfers(unsigned char serverID = 0, unsigned char channelID = 0);
+	void RemoveAllUserTransfers();
 	bool SaveUserOption(unsigned long userID, const vector<unsigned char>& userOption);
 	const vector<unsigned char> GetUserOption(unsigned long userID);
 	bool SaveUserBuyMenu(unsigned long userID, unsigned char categoryID, unsigned char slotID, unsigned char itemID);
@@ -45,7 +45,6 @@ public:
 
 private:
 	MYSQL* _connection;
-	bool _addedServerChannel;
 };
 
 extern DatabaseManager databaseManager;

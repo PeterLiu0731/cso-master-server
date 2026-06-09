@@ -10,14 +10,14 @@ void Packet_UpdateInfoManager::ParsePacket_UpdateInfo(TCPConnection::Packet::poi
 		return;
 	}
 
-	auto connection = packet->GetConnection();
+	auto& connection = packet->GetConnection();
 	if (connection == NULL) {
 		return;
 	}
 
 	User* user = userManager.GetUserByConnection(connection);
 	if (!userManager.IsUserLoggedIn(user)) {
-		serverConsole.Print(PrefixType::Warn, format("[ Packet_UpdateInfoManager ] Client ({}) has sent Packet_UpdateInfo, but it's not logged in!\n", connection->GetIPAddress()));
+		serverConsole.Print(PrefixType::Warn, format("[ Packet_UpdateInfoManager ] Client ({}) has sent Packet_UpdateInfo, but it's not logged in!\n", connection->GetLogEndpoint()));
 		return;
 	}
 
@@ -27,14 +27,11 @@ void Packet_UpdateInfoManager::ParsePacket_UpdateInfo(TCPConnection::Packet::poi
 	
 	switch (type) {
 		case 0: {
-			const string& unk1 = packet->ReadString();
-
-			serverConsole.Print(PrefixType::Info, format("[ Packet_UpdateInfoManager ] User ({}) has sent Packet_UpdateInfo - type: {}, unk1: {}\n", user->GetUserLogName(), type, unk1));
+			parsePacket_UpdateInfo_Unk0(user, packet);
 			break;
 		}
 		case 1: {
-			// nothing to read
-			serverConsole.Print(PrefixType::Info, format("[ Packet_UpdateInfoManager ] User ({}) has sent Packet_UpdateInfo - type: {}\n", user->GetUserLogName(), type));
+			parsePacket_UpdateInfo_Unk1(user);
 			break;
 		}
 		default: {
@@ -49,7 +46,7 @@ void Packet_UpdateInfoManager::SendPacket_UpdateInfo(const GameUser& gameUser) {
 		return;
 	}
 
-	auto connection = gameUser.user->GetConnection();
+	auto& connection = gameUser.user->GetConnection();
 	if (connection == NULL) {
 		return;
 	}
@@ -63,4 +60,22 @@ void Packet_UpdateInfoManager::SendPacket_UpdateInfo(const GameUser& gameUser) {
 	packetManager.BuildUserCharacter(packet, gameUser.userCharacter);
 
 	packet->Send();
+}
+
+void Packet_UpdateInfoManager::parsePacket_UpdateInfo_Unk0(User* user, TCPConnection::Packet::pointer packet) {
+	if (user == NULL || packet == NULL) {
+		return;
+	}
+
+	const string& unk1 = packet->ReadString();
+
+	serverConsole.Print(PrefixType::Info, format("[ Packet_UpdateInfoManager ] User ({}) has sent Packet_UpdateInfo Unk0 - unk1: {}\n", user->GetUserLogName(), unk1));
+}
+
+void Packet_UpdateInfoManager::parsePacket_UpdateInfo_Unk1(User* user) {
+	if (user == NULL) {
+		return;
+	}
+
+	serverConsole.Print(PrefixType::Info, format("[ Packet_UpdateInfoManager ] User ({}) has sent Packet_UpdateInfo Unk1\n", user->GetUserLogName()));
 }

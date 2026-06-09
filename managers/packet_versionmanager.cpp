@@ -10,13 +10,13 @@ void Packet_VersionManager::ParsePacket_Version(TCPConnection::Packet::pointer p
 		return;
 	}
 
-	auto connection = packet->GetConnection();
+	auto& connection = packet->GetConnection();
 	if (connection == NULL) {
 		return;
 	}
 
 	if (connection->IsVersionReceived()) {
-		serverConsole.Print(PrefixType::Warn, format("[ Packet_VersionManager ] Client ({}) has sent Packet_Version, but it already sent Packet_Version!\n", connection->GetIPAddress()));
+		serverConsole.Print(PrefixType::Warn, format("[ Packet_VersionManager ] Client ({}) has sent Packet_Version, but it already sent Packet_Version!\n", connection->GetLogEndpoint()));
 		return;
 	}
 
@@ -26,7 +26,7 @@ void Packet_VersionManager::ParsePacket_Version(TCPConnection::Packet::pointer p
 		return;
 	}
 
-	serverConsole.Print(PrefixType::Info, format("[ Packet_VersionManager ] Parsing Packet_Version from client ({})\n", connection->GetIPAddress()));
+	serverConsole.Print(PrefixType::Info, format("[ Packet_VersionManager ] Parsing Packet_Version from client ({})\n", connection->GetLogEndpoint()));
 
 	unsigned char launcherVersion = packet->ReadUInt8();
 	unsigned short clientVersion = packet->ReadUInt16_LE();
@@ -39,7 +39,7 @@ void Packet_VersionManager::ParsePacket_Version(TCPConnection::Packet::pointer p
 	char dateStr[9];
 	strftime(dateStr, sizeof(dateStr), "%d.%m.%y", &date);
 
-	serverConsole.Print(PrefixType::Info, format("[ Packet_VersionManager ] Client ({}) has sent Packet_Version - launcherVersion: {}, clientVersion: {}, clientBuildTimestamp: {}, clientNARChecksum: {}\n", connection->GetIPAddress(), launcherVersion, clientVersion, dateStr, clientNARChecksum));
+	serverConsole.Print(PrefixType::Info, format("[ Packet_VersionManager ] Client ({}) has sent Packet_Version - launcherVersion: {}, clientVersion: {}, clientBuildTimestamp: {}, clientNARChecksum: {}\n", connection->GetLogEndpoint(), launcherVersion, clientVersion, dateStr, clientNARChecksum));
 
 	if (launcherVersion != LAUNCHER_VERSION) {
 		packetManager.SendPacket_Reply(connection, Packet_ReplyType::INVALID_CLIENT_VERSION);

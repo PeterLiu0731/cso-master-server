@@ -7,17 +7,36 @@
 
 using namespace std;
 
-#define UDP_CLIENT_PACKET_SIGNATURE 'W'
-#define UDP_SERVER_PACKET_SIGNATURE 'Y'
-#define UDP_PACKET_MAX_SIZE 4010
+constexpr auto UDP_CLIENT_PACKET_SIGNATURE = 'W';
+constexpr auto UDP_RELAY_PACKET_SIGNATURE = 'Y';
+constexpr auto UDP_PING_PACKET_SIGNATURE = '`';
+constexpr auto UDP_SERVER_PACKET_SIGNATURE = 'Z';
+constexpr auto UDP_PACKET_MAX_SIZE = 4010;
+constexpr auto UDP_CLIENT_HEARTBEAT_TIMEOUT = 15;
+constexpr auto UDP_SERVER_HEARTBEAT_TIMEOUT = 3;
+
+enum ClientPacketType {
+	SocketInfo = 0,
+	Heartbeat = 1
+};
+
+enum PingPacketType {
+	Request = 0,
+	Reply = 1
+};
 
 enum ServerPacketType {
 	HELLO = 0,
 	HELLO_ANSWER = 1,
 	GOODBYE = 2,
 	HEARTBEAT = 3,
-	NUMPLAYERS = 4,
-	DEADCHANNEL = 5
+	NUMPLAYERS = 4
+};
+
+struct PingRequest {
+	boost::asio::ip::udp::endpoint requestEndpoint;
+	boost::asio::ip::udp::endpoint replyEndpoint;
+	unsigned long long timestamp;
 };
 
 class UDPPacket {
@@ -33,6 +52,10 @@ public:
 	}
 	const vector<unsigned char>& GetBuffer() const noexcept {
 		return _buffer;
+	}
+
+	unsigned char GetSignature() const noexcept {
+		return _signature;
 	}
 
 	string ByteStr(bool LE) const noexcept {
@@ -280,6 +303,7 @@ public:
 private:
 	vector<unsigned char> _buffer;
 	boost::asio::ip::udp::endpoint _endpoint;
+	unsigned char _signature;
 
 	int _readOffset;
 	int _writeOffset;
@@ -297,9 +321,8 @@ public:
 	bool Init(unsigned short port);
 	void Start();
 	void Stop();
-	void SendNumPlayersPacketToAll(unsigned short numPlayers);
+	void SendNumPlayersPacketToAll();
 	void OnSecondTick();
-	void SendPacket(UDPPacket* packet, bool isServer = false);
 
 private:
 	int run();
@@ -310,12 +333,14 @@ private:
 	void handleIncomingServerPacket(UDPPacket* packet);
 	void handleOutgoingClientPacket(UDPPacket* packet);
 	void handleOutgoingServerPacket(UDPPacket* packet);
+	void sendPacket(UDPPacket* packet, bool isServer = false);
 	void sendClientPacket(const boost::asio::ip::udp::endpoint& endpoint, const string& userLogName);
-	void sendHelloAnswerPacket(const boost::asio::ip::udp::endpoint& endpoint, unsigned short numPlayers);
+	void sendRelayPacket(const boost::asio::ip::udp::endpoint& endpoint, vector<unsigned char> buffer, const string& userLogName);
+	void sendPingPacket(const boost::asio::ip::udp::endpoint& endpoint, const vector<unsigned char>& buffer);
+	void sendHelloAnswerPacket(const boost::asio::ip::udp::endpoint& endpoint);
 	void sendHelloPacketToAll();
 	void sendGoodbytePacketToAll();
 	void sendHeartbeatPacket(unsigned char serverID, unsigned char channelID);
-	void sendDeadChannelPacketToAll(unsigned char serverID, unsigned char channelID);
 
 	unsigned short _port;
 
@@ -339,6 +364,9 @@ private:
 
 	int _pendingGoodbyePackets;
 	bool _isShuttingDown;
+
+	vector<PingRequest> _pingRequests;
+	unsigned long long _currentTime;
 };
 
 extern UDPServer udpServer;

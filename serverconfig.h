@@ -23,7 +23,7 @@ struct Channel {
 	string ip = "";
 	unsigned short port = 0;
 	bool isOnline = true;
-	unsigned long long lastHeartBeat = 0;
+	unsigned long long lastHeartbeat = 0;
 };
 
 struct Server {
@@ -40,7 +40,12 @@ public:
 
 	bool Load();
 
+	unsigned long ip;
 	unsigned short port;
+	bool ssl;
+	CipherMethod decryptCipherMethod;
+	CipherMethod encryptCipherMethod;
+	string udpAuthKey;
 	unsigned short maxPlayers;
 	unsigned char serverID;
 	unsigned char channelID;
@@ -50,8 +55,6 @@ public:
 	string sqlPassword;
 	string sqlDatabase;
 	vector<string> prohibitedNames;
-	CipherMethod decryptCipherMethod;
-	CipherMethod encryptCipherMethod;
 	vector<BuyMenu> defaultBuyMenus;
 	vector<unsigned char> defaultInventory;
 };

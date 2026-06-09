@@ -9,14 +9,14 @@ void Packet_CryptManager::ParsePacket_RecvCrypt(TCPConnection::Packet::pointer p
 		return;
 	}
 
-	auto connection = packet->GetConnection();
+	auto& connection = packet->GetConnection();
 	if (connection == NULL) {
 		return;
 	}
 
 	User* user = userManager.GetUserByConnection(connection);
 	if (!userManager.IsUserLoggedIn(user)) {
-		serverConsole.Print(PrefixType::Warn, format("[ Packet_CryptManager ] Client ({}) has sent Packet_RecvCrypt, but it's not logged in!\n", connection->GetIPAddress()));
+		serverConsole.Print(PrefixType::Warn, format("[ Packet_CryptManager ] Client ({}) has sent Packet_RecvCrypt, but it's not logged in!\n", connection->GetLogEndpoint()));
 		return;
 	}
 

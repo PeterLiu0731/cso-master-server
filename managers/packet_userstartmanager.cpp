@@ -9,14 +9,14 @@ void Packet_UserStartManager::ParsePacket_UserStart(TCPConnection::Packet::point
 		return;
 	}
 
-	auto connection = packet->GetConnection();
+	auto& connection = packet->GetConnection();
 	if (connection == NULL) {
 		return;
 	}
 
 	User* user = userManager.GetUserByConnection(connection);
 	if (!userManager.IsUserLoggedIn(user)) {
-		serverConsole.Print(PrefixType::Warn, format("[ Packet_UserStartManager ] Client ({}) has sent Packet_UserStart, but it's not logged in!\n", connection->GetIPAddress()));
+		serverConsole.Print(PrefixType::Warn, format("[ Packet_UserStartManager ] Client ({}) has sent Packet_UserStart, but it's not logged in!\n", connection->GetLogEndpoint()));
 		return;
 	}
 
@@ -26,7 +26,7 @@ void Packet_UserStartManager::ParsePacket_UserStart(TCPConnection::Packet::point
 	unsigned long unk1 = packet->ReadUInt32_LE();
 	const string& unk2 = packet->ReadString();
 
-	serverConsole.Print(PrefixType::Info, format("[ Packet_UserStartManager ] User ({}) has sent Packet_UserStart - type: {}, unk1: {}, unk2: {}\n", connection->GetIPAddress(), type, unk1, unk2));
+	serverConsole.Print(PrefixType::Info, format("[ Packet_UserStartManager ] User ({}) has sent Packet_UserStart - type: {}, unk1: {}, unk2: {}\n", connection->GetLogEndpoint(), type, unk1, unk2));
 }
 
 void Packet_UserStartManager::SendPacket_UserStart(const GameUser& gameUser) {
@@ -34,7 +34,7 @@ void Packet_UserStartManager::SendPacket_UserStart(const GameUser& gameUser) {
 		return;
 	}
 
-	auto connection = gameUser.user->GetConnection();
+	auto& connection = gameUser.user->GetConnection();
 	if (connection == NULL) {
 		return;
 	}

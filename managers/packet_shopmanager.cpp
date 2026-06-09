@@ -9,14 +9,14 @@ void Packet_ShopManager::ParsePacket_Shop(TCPConnection::Packet::pointer packet)
 		return;
 	}
 
-	auto connection = packet->GetConnection();
+	auto& connection = packet->GetConnection();
 	if (connection == NULL) {
 		return;
 	}
 
 	User* user = userManager.GetUserByConnection(connection);
 	if (!userManager.IsUserLoggedIn(user)) {
-		serverConsole.Print(PrefixType::Warn, format("[ Packet_ShopManager ] Client ({}) has sent Packet_Shop, but it's not logged in!\n", connection->GetIPAddress()));
+		serverConsole.Print(PrefixType::Warn, format("[ Packet_ShopManager ] Client ({}) has sent Packet_Shop, but it's not logged in!\n", connection->GetLogEndpoint()));
 		return;
 	}
 
@@ -25,8 +25,8 @@ void Packet_ShopManager::ParsePacket_Shop(TCPConnection::Packet::pointer packet)
 	unsigned char type = packet->ReadUInt8();
 
 	switch (type) {
-		case Packet_ShopType::Unk0: {
-			sendPacket_Shop_Unk0(connection);
+		case Packet_ShopType::RequestShopList: {
+			parsePacket_Shop_RequestShopList(user);
 			break;
 		}
 		default: {
@@ -36,7 +36,22 @@ void Packet_ShopManager::ParsePacket_Shop(TCPConnection::Packet::pointer packet)
 	}
 }
 
-void Packet_ShopManager::sendPacket_Shop_Unk0(TCPConnection::pointer connection) {
+void Packet_ShopManager::parsePacket_Shop_RequestShopList(User* user) {
+	if (user == NULL) {
+		return;
+	}
+
+	auto& connection = user->GetConnection();
+	if (connection == NULL) {
+		return;
+	}
+
+	serverConsole.Print(PrefixType::Info, format("[ Packet_ShopManager ] User ({}) has sent Packet_Shop RequestShopList\n", user->GetUserLogName()));
+
+	sendPacket_Shop_ShopList(connection);
+}
+
+void Packet_ShopManager::sendPacket_Shop_ShopList(TCPConnection::pointer connection) {
 	if (connection == NULL) {
 		return;
 	}
@@ -46,7 +61,7 @@ void Packet_ShopManager::sendPacket_Shop_Unk0(TCPConnection::pointer connection)
 		return;
 	}
 
-	packet->WriteUInt8(Packet_ShopType::Unk0);
+	packet->WriteUInt8(Packet_ShopType::ShopList);
 	packet->WriteUInt8(0); // Num. of products
 
 	for (unsigned char i = 0; i < 0; i++) {

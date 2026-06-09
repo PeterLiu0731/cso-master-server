@@ -1,22 +1,16 @@
 #include "databasemanager.h"
 
-User::User(TCPConnection::pointer connection, unsigned long userID, const string& userName, const UserNetwork& userNetwork) : _connection(connection), _userID(userID), _userName(userName), _userNetwork(userNetwork) {
+User::User(TCPConnection::pointer connection, unsigned long userID, const string& userName) : _connection(connection), _userID(userID), _userName(userName) {
 	if (_connection == NULL) {
 		delete this;
 		return;
 	}
 
-	struct sockaddr_in addr {};
-
-	inet_pton(AF_INET, connection->GetIPAddress().c_str(), &(addr.sin_addr));
-
-	_userNetwork.externalIP = addr.sin_addr.S_un.S_addr;
-
 	_userStatus = UserStatus::InLogin;
 	_currentRoomID = 0;
 }
 
-void User::SetUserNetwork(PortType portType, unsigned long externalIP, unsigned short externalPort, unsigned long localIP, unsigned short localPort) {
+void User::SetUserNetwork(PortType portType, unsigned long externalIP, unsigned short externalPort, unsigned long localIP, unsigned short localPort, unsigned long long currentTime) noexcept {
 	_userNetwork.externalIP = externalIP;
 	_userNetwork.localIP = localIP;
 
@@ -24,11 +18,28 @@ void User::SetUserNetwork(PortType portType, unsigned long externalIP, unsigned 
 		case PortType::Guest: {
 			_userNetwork.externalGuestPort = externalPort;
 			_userNetwork.localGuestPort = localPort;
+			_userNetwork.lastGuestHeartbeat = currentTime;
+			_userNetwork.networkSet |= 0x1;
 			break;
 		}
 		case PortType::Host: {
 			_userNetwork.externalHostPort = externalPort;
 			_userNetwork.localHostPort = localPort;
+			_userNetwork.lastHostHeartbeat = currentTime;
+			_userNetwork.networkSet |= 0x2;
+			break;
+		}
+	}
+}
+
+void User::SetUserNetworkHeartbeat(PortType portType, unsigned long long currentTime) noexcept {
+	switch (portType) {
+		case PortType::Guest: {
+			_userNetwork.lastGuestHeartbeat = currentTime;
+			break;
+		}
+		case PortType::Host: {
+			_userNetwork.lastHostHeartbeat = currentTime;
 			break;
 		}
 	}
@@ -63,7 +74,7 @@ void User::RemoveUserSession() const noexcept {
 }
 
 char User::AddUserTransfer(const string& authToken, unsigned char serverID, unsigned char channelID) const noexcept {
-	return databaseManager.AddUserTransfer(_userID, authToken, serverID, channelID, _userNetwork);
+	return databaseManager.AddUserTransfer(_userID, authToken, serverID, channelID);
 }
 
 void User::RemoveUserTransfer() const noexcept {

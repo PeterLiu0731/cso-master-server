@@ -1,5 +1,10 @@
 {
+	"IP": "127.0.0.1",
 	"Port": 8001,
+	"SSL": true,
+	"DecryptCipherMethod": 1,
+	"EncryptCipherMethod": 1,
+	"UDPAuthKey": "",
 	"MaxPlayers": 600,
 	"ServerID": 1,
 	"ChannelID": 1,
@@ -21,8 +26,6 @@
 		"Database": "csodatabase"
 	},
 	"ProhibitedNames": [],
-	"DecryptCipherMethod": 1,
-	"EncryptCipherMethod": 1,
 	"DefaultBuyMenus": {
 		"Terrorist": {
 			"Pistol": [ 3, 6, 2, 4, 1 ],

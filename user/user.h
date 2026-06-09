@@ -5,22 +5,22 @@
 #undef GetUserName
 #endif
 
-#define HARDWARE_ID_SIZE 16
+constexpr auto HARDWARE_ID_SIZE = 16;
 
-#define USERCHARACTER_FLAG_UNK1			0x1
-#define USERCHARACTER_FLAG_NICKNAME		0x2
-#define USERCHARACTER_FLAG_UNK4			0x4
-#define USERCHARACTER_FLAG_LEVEL		0x8
-#define USERCHARACTER_FLAG_UNK10		0x10
-#define USERCHARACTER_FLAG_EXP			0x20
-#define USERCHARACTER_FLAG_CASH			0x40
-#define USERCHARACTER_FLAG_POINTS		0x80
-#define USERCHARACTER_FLAG_BATTLESTATS	0x100
-#define USERCHARACTER_FLAG_LOCATION		0x200
-#define USERCHARACTER_FLAG_UNK400		0x400
-#define USERCHARACTER_FLAG_UNK800		0x800
-#define USERCHARACTER_FLAG_CLAN			0x1000
-#define USERCHARACTER_FLAG_ALL			0xFFFF
+constexpr auto USERCHARACTER_FLAG_UNK1 =		0x1;
+constexpr auto USERCHARACTER_FLAG_NICKNAME =	0x2;
+constexpr auto USERCHARACTER_FLAG_UNK4 =		0x4;
+constexpr auto USERCHARACTER_FLAG_LEVEL =		0x8;
+constexpr auto USERCHARACTER_FLAG_UNK10 =		0x10;
+constexpr auto USERCHARACTER_FLAG_EXP =			0x20;
+constexpr auto USERCHARACTER_FLAG_CASH =		0x40;
+constexpr auto USERCHARACTER_FLAG_POINTS =		0x80;
+constexpr auto USERCHARACTER_FLAG_BATTLESTATS = 0x100;
+constexpr auto USERCHARACTER_FLAG_LOCATION =	0x200;
+constexpr auto USERCHARACTER_FLAG_UNK400 =		0x400;
+constexpr auto USERCHARACTER_FLAG_UNK800 =		0x800;
+constexpr auto USERCHARACTER_FLAG_CLAN =		0x1000;
+constexpr auto USERCHARACTER_FLAG_ALL =			0xFFFF;
 
 struct UserCharacter {
 	unsigned short flag = 0;
@@ -70,6 +70,9 @@ struct UserNetwork {
 	unsigned long localIP = 0;
 	unsigned short localHostPort = 0;
 	unsigned short localGuestPort = 0;
+	unsigned long long lastHostHeartbeat = 0;
+	unsigned long long lastGuestHeartbeat = 0;
+	char networkSet = 0;
 };
 
 enum UserStatus {
@@ -82,9 +85,9 @@ enum UserStatus {
 
 class User {
 public:
-	User(TCPConnection::pointer connection, unsigned long userID, const string& userName, const UserNetwork& userNetwork = {});
+	User(TCPConnection::pointer connection, unsigned long userID, const string& userName);
 
-	TCPConnection::pointer GetConnection() const noexcept {
+	const TCPConnection::pointer& GetConnection() const noexcept {
 		return _connection;
 	}
 
@@ -108,7 +111,8 @@ public:
 		return _userNetwork;
 	}
 
-	void SetUserNetwork(PortType portType, unsigned long externalIP, unsigned short externalPort, unsigned long localIP, unsigned short localPort);
+	void SetUserNetwork(PortType portType, unsigned long externalIP, unsigned short externalPort, unsigned long localIP, unsigned short localPort, unsigned long long currentTime) noexcept;
+	void SetUserNetworkHeartbeat(PortType portType, unsigned long long currentTime) noexcept;
 
 	UserStatus GetUserStatus() const noexcept {
 		return _userStatus;
